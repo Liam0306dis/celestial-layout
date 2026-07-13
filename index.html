@@ -34,7 +34,6 @@
   }
   input:focus, select:focus { border-color:var(--moon); }
   .options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; }
-  .priority { grid-column:1 / -1; }
   .compact { grid-column:1 / -1; }
   .coverage-mode { grid-column:1 / -1; margin:0; padding:0; border:0; }
   .coverage-mode legend { margin-bottom:5px; color:var(--dim); font-size:12px; }
@@ -49,7 +48,6 @@
   }
   .check input { width:17px; height:17px; margin:0; accent-color:var(--moon); }
   .check label { margin:0; color:var(--text); font-size:12px; cursor:pointer; }
-  .priority label { margin-bottom:5px; }
   button {
     width:100%; margin-top:14px; padding:10px 16px; border:0; border-radius:8px;
     background:var(--moon); color:#101014; font:700 14px inherit; cursor:pointer;
@@ -149,7 +147,6 @@
           <input id="coverageMoon" name="coverageGoal" type="radio" value="moon"><label for="coverageMoon">Amber buff</label>
         </div>
       </fieldset>
-      <div class="priority"><label for="priority">Placement priority</label><select id="priority"><option value="balanced">Balanced</option><option value="moon">Moonbinders first</option><option value="dawn">Dawnbinders first</option></select></div>
       <div class="check compact"><input id="compact" type="checkbox" checked><label for="compact">Prefer compact placement</label></div>
     </div>
     <button id="generate" type="button">Generate layout</button>
@@ -240,14 +237,13 @@ function inspect(plants, rows, cols, settings) {
   }
 
   let score = 0, required = 0, met = 0, both = 0, exposedMoons = 0;
-  const priorityType = settings.priority === 'balanced' ? null : settings.priority;
   plants.forEach((plant, i) => {
     if (plant.type === 'empty') return;
     const req = requirements(plant, settings);
     const cov = coverage[i];
     const isRequired = req.dawn || req.moon;
     const ok = (!req.dawn || cov.dawn) && (!req.moon || cov.moon);
-    const weight = plant.type === priorityType ? 7 : 4;
+    const weight = 4;
     if (isRequired) { required++; if (ok) { met++; score += weight; } else score -= weight * 100; }
     if (cov.dawn && cov.moon) { both++; score += .08; }
     if (plant.type === 'moon') {
@@ -353,8 +349,7 @@ function validate(dawn, moon, other, settings) {
 function currentSettings() {
   return {
     coverageGoal:document.querySelector('input[name="coverageGoal"]:checked').value,
-    compact:$('compact').checked,
-    priority:$('priority').value
+    compact:$('compact').checked
   };
 }
 
@@ -363,7 +358,6 @@ function resetPlannerInputs() {
   $('moonCount').value = 4;
   $('otherCount').value = 8;
   $('coverageBoth').checked = true;
-  $('priority').value = 'balanced';
   $('compact').checked = true;
   $('copyStatus').textContent = '';
 }
