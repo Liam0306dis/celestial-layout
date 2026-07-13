@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Celestial Layout Planner</title>
+<style>
+  :root {
+    --bg:#0c0c10; --panel:#14141b; --panel2:#1b1b24; --line:rgba(255,255,255,.08);
+    --text:#e7e7ea; --dim:#9a9aa6; --faint:#6b6b78; --dawn:#f6b85f;
+    --moon:#b89cff; --other:#65d69a; --bad:#f87171; --good:#4ade80;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:24px 16px 60px; background:var(--bg); color:var(--text);
+    font-family:"Outfit",system-ui,-apple-system,sans-serif; line-height:1.5;
+  }
+  .wrap { width:100%; max-width:920px; margin:0 auto; }
+  h1 { font-size:22px; font-weight:700; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:13px; margin:0 0 20px; }
+  .card {
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:16px;
+  }
+  .card h2 {
+    font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--faint); margin:0 0 12px;
+  }
+  .fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  label { display:block; color:var(--dim); font-size:11px; margin:0 0 5px; }
+  input[type=number], input[type=text], select {
+    width:100%; padding:9px 10px; background:var(--panel2); color:var(--text);
+    border:1px solid var(--line); border-radius:8px; font:14px inherit; outline:none;
+  }
+  input:focus, select:focus { border-color:var(--moon); }
+  .options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; }
+  .priority { grid-column:1 / -1; }
+  .compact { grid-column:1 / -1; }
+  .coverage-mode { grid-column:1 / -1; margin:0; padding:0; border:0; }
+  .coverage-mode legend { margin-bottom:5px; color:var(--dim); font-size:12px; }
+  .segments { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; padding:2px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; }
+  .segments input { position:absolute; opacity:0; pointer-events:none; }
+  .segments label { min-width:0; padding:8px 5px; border-radius:5px; color:var(--dim); font-size:11px; text-align:center; cursor:pointer; }
+  .segments input:checked + label { background:var(--moon); color:#101014; font-weight:700; }
+  .segments input:focus-visible + label { outline:2px solid var(--text); outline-offset:1px; }
+  .check {
+    display:flex; gap:9px; align-items:center; min-height:42px; padding:8px 10px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+  }
+  .check input { width:17px; height:17px; margin:0; accent-color:var(--moon); }
+  .check label { margin:0; color:var(--text); font-size:12px; cursor:pointer; }
+  .priority label { margin-bottom:5px; }
+  button {
+    width:100%; margin-top:14px; padding:10px 16px; border:0; border-radius:8px;
+    background:var(--moon); color:#101014; font:700 14px inherit; cursor:pointer;
+  }
+  button:hover { filter:brightness(1.06); }
+  .export-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; margin-top:14px; }
+  .export-row button { width:auto; margin:0; white-space:nowrap; background:var(--panel2); color:var(--text); border:1px solid var(--line); }
+  .message { display:none; margin-top:12px; padding:9px 11px; border-radius:8px; font-size:12px; }
+  .message.show { display:block; }
+  .message.bad { color:#fecaca; background:rgba(248,113,113,.09); border:1px solid rgba(248,113,113,.25); }
+  .message.good { color:#bbf7d0; background:rgba(74,222,128,.08); border:1px solid rgba(74,222,128,.22); }
+  .summary { display:flex; flex-wrap:wrap; gap:18px; margin-bottom:14px; }
+  .stat .value { font-size:19px; font-weight:700; }
+  .stat .label { color:var(--dim); font-size:11px; }
+  .board-wrap { overflow:auto; padding-bottom:3px; }
+  .board {
+    display:grid; grid-template-columns:repeat(var(--cols),minmax(48px,1fr)); gap:6px;
+    min-width:calc(var(--cols) * 54px); max-width:760px; margin:0 auto;
+  }
+  .plant {
+    aspect-ratio:1; min-width:0; border:1px solid var(--line); border-radius:8px;
+    background:var(--panel2); display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:3px; position:relative; width:100%; margin:0; padding:0;
+    color:inherit; font:inherit; cursor:pointer; appearance:none;
+  }
+  .plant:focus-visible { outline:2px solid var(--text); outline-offset:1px; }
+  .plant.dawn { background:rgba(246,184,95,.12); border-color:rgba(246,184,95,.32); }
+  .plant.moon { background:rgba(184,156,255,.12); border-color:rgba(184,156,255,.32); }
+  .plant.other { background:rgba(101,214,154,.08); border-color:rgba(101,214,154,.2); }
+  .plant.empty { background:rgba(255,255,255,.015); border-color:rgba(255,255,255,.04); }
+  .plant.unmet { box-shadow:inset 0 0 0 2px var(--bad); }
+  .plant-image { width:60%; height:60%; object-fit:contain; display:block; }
+  .buffs { display:flex; gap:3px; }
+  .buff {
+    min-width:17px; padding:1px 4px; border-radius:4px; color:var(--faint);
+    background:rgba(255,255,255,.04); font-size:9px; text-align:center;
+  }
+  .buff.on.d { color:var(--dawn); background:rgba(246,184,95,.14); }
+  .buff.on.m { color:var(--moon); background:rgba(184,156,255,.14); }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; color:var(--dim); font-size:11px; }
+  .key { display:inline-flex; align-items:center; }
+  .key::before { content:""; display:inline-block; width:20px; height:20px; margin-right:5px; background-position:center; background-repeat:no-repeat; background-size:contain; }
+  .key.d::before { background-image:url('dawncelestial.png'); }
+  .key.m::before { background-image:url('mooncelestial.png'); }
+  .key.o::before { background-image:url('dawnbreaker.png'); }
+  .key.u::before { width:9px; height:9px; border-radius:3px; background:var(--bad); }
+  .note { color:var(--dim); font-size:12px; margin:10px 0 0; }
+  @media (max-width:620px) {
+    body { padding:16px 10px 44px; }
+    .card { padding:14px 12px; }
+    .fields { grid-template-columns:1fr 1fr; }
+    .fields .field:last-child { grid-column:1 / -1; }
+    .options { grid-template-columns:1fr; }
+    .segments label { padding:8px 3px; }
+    .summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px; }
+    .board-wrap { overflow:visible; }
+    .board { width:100%; min-width:0; grid-template-columns:repeat(var(--cols),minmax(0,1fr)); gap:3px; }
+    .plant { border-radius:5px; gap:1px; }
+    .plant-image { width:58%; height:58%; }
+    .buffs { gap:1px; }
+    .buff { min-width:9px; padding:0; border-radius:2px; font-size:7px; line-height:1.15; }
+    .export-row { grid-template-columns:1fr; }
+    .export-row button { width:100%; }
+  }
+  @media (max-width:360px) {
+    body { padding-inline:8px; }
+    .card { padding-inline:10px; }
+    .board { gap:2px; }
+    .legend { gap:9px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Celestial Layout Planner</h1>
+  <p class="sub">Generate a placement for a 10 x 10 farm where celestial plants share mutations across their surrounding 3 x 3 area.</p>
+
+  <section class="card">
+    <h2>Plants &amp; priorities</h2>
+    <div class="fields">
+      <div class="field"><label for="dawnCount">Dawnbinders</label><input id="dawnCount" type="number" min="0" max="100" value="4" autocomplete="off"></div>
+      <div class="field"><label for="moonCount">Moonbinders</label><input id="moonCount" type="number" min="0" max="100" value="4" autocomplete="off"></div>
+      <div class="field"><label for="otherCount">Dawnbreakers needing a buff</label><input id="otherCount" type="number" min="0" max="100" value="8" autocomplete="off"></div>
+    </div>
+    <div class="options">
+      <fieldset class="coverage-mode">
+        <legend>All plants need</legend>
+        <div class="segments">
+          <input id="coverageBoth" name="coverageGoal" type="radio" value="both" checked><label for="coverageBoth">Both buffs</label>
+          <input id="coverageDawn" name="coverageGoal" type="radio" value="dawn"><label for="coverageDawn">Dawnbinder buff</label>
+          <input id="coverageMoon" name="coverageGoal" type="radio" value="moon"><label for="coverageMoon">Amber buff</label>
+        </div>
+      </fieldset>
+      <div class="priority"><label for="priority">Placement priority</label><select id="priority"><option value="balanced">Balanced</option><option value="moon">Moonbinders first</option><option value="dawn">Dawnbinders first</option></select></div>
+      <div class="check compact"><input id="compact" type="checkbox" checked><label for="compact">Prefer compact placement</label></div>
+    </div>
+    <button id="generate" type="button">Generate layout</button>
+    <div id="message" class="message" role="status"></div>
+  </section>
+
+  <section class="card">
+    <h2>Generated placement</h2>
+    <div class="summary">
+      <div class="stat"><div class="value" id="dimensions">-</div><div class="label">layout size</div></div>
+      <div class="stat"><div class="value" id="targets">-</div><div class="label">required plants covered</div></div>
+      <div class="stat"><div class="value" id="doubleBuffed">-</div><div class="label">plants receiving both</div></div>
+    </div>
+    <div class="board-wrap"><div id="board" class="board" aria-label="Generated celestial plant layout"></div></div>
+    <div class="legend">
+      <span class="key d">Dawnbinder</span><span class="key m">Moonbinder</span>
+      <span class="key o">Dawnbreaker</span><span>Empty plot</span><span class="key u">Required buff missing</span>
+    </div>
+    <p class="note">D and M markers show which mutations reach each plant. A celestial never counts its own mutation toward its coverage.</p>
+    <div class="export-row">
+      <div><label for="planString">Plan string</label><input id="planString" type="text" readonly aria-label="Plan string"></div>
+      <button id="copyPlan" type="button">Copy plan</button>
+    </div>
+    <p id="copyStatus" class="note" role="status"></p>
+  </section>
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+// A 3 x 3 effect covers the source plot plus the eight adjacent plots.
+const RANGE = 1;
+
+function readCount(id) {
+  const el = $(id);
+  const value = Math.max(0, Math.min(+el.max, Math.floor(+el.value || 0)));
+  el.value = value;
+  return value;
+}
+
+function requirements(plant, settings) {
+  if (plant.type === 'empty') return {};
+  if (settings.coverageGoal === 'both') return { dawn:true, moon:true };
+  if (settings.coverageGoal === 'dawn') return { dawn:true, moon:false };
+  if (settings.coverageGoal === 'moon') return { dawn:false, moon:true };
+  return {};
+}
+
+function countInteriorEmpties(plants, rows, cols) {
+  let total = 0;
+  for (let i = 0; i < plants.length; i++) {
+    if (plants[i].type !== 'empty') continue;
+    const row = Math.floor(i / cols), col = i % cols;
+    let left = false, right = false, above = false, below = false;
+    for (let c = 0; c < col; c++) left ||= plants[row * cols + c].type !== 'empty';
+    for (let c = col + 1; c < cols; c++) right ||= plants[row * cols + c].type !== 'empty';
+    for (let r = 0; r < row; r++) above ||= plants[r * cols + col].type !== 'empty';
+    for (let r = row + 1; r < rows; r++) below ||= plants[r * cols + col].type !== 'empty';
+    if (left && right && above && below) total++;
+  }
+  return total;
+}
+
+function inspect(plants, rows, cols, settings) {
+  const coverage = plants.map(() => ({ dawn:false, moon:false }));
+  for (let i = 0; i < plants.length; i++) {
+    if (plants[i].type === 'empty') continue;
+    for (let j = 0; j < plants.length; j++) {
+      if (i === j || plants[j].type === 'empty') continue;
+      const dr = Math.abs(Math.floor(i / cols) - Math.floor(j / cols));
+      const dc = Math.abs((i % cols) - (j % cols));
+      if (Math.max(dr, dc) > RANGE) continue;
+      if (plants[j].type === 'dawn') coverage[i].dawn = true;
+      if (plants[j].type === 'moon') coverage[i].moon = true;
+    }
+  }
+
+  let score = 0, required = 0, met = 0, both = 0, exposedMoons = 0;
+  const priorityType = settings.priority === 'balanced' ? null : settings.priority;
+  plants.forEach((plant, i) => {
+    if (plant.type === 'empty') return;
+    const req = requirements(plant, settings);
+    const cov = coverage[i];
+    const isRequired = req.dawn || req.moon;
+    const ok = (!req.dawn || cov.dawn) && (!req.moon || cov.moon);
+    const weight = plant.type === priorityType ? 7 : 4;
+    if (isRequired) { required++; if (ok) { met++; score += weight; } else score -= weight * 100; }
+    if (cov.dawn && cov.moon) { both++; score += .08; }
+    if (plant.type === 'moon') {
+      const row = Math.floor(i / cols), col = i % cols;
+      let exposed = false;
+      for (let dr = -1; dr <= 1 && !exposed; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = row + dr, nc = col + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && plants[nr * cols + nc].type === 'empty') {
+            exposed = true;
+            break;
+          }
+        }
+      }
+      if (exposed) { exposedMoons++; score += .2; }
+    }
+    plant.coverage = cov;
+    plant.required = isRequired;
+    plant.met = !isRequired || ok;
+  });
+  const interiorEmpties = countInteriorEmpties(plants, rows, cols);
+  if (settings.compact) score -= interiorEmpties * 3;
+  return { score, required, met, both, exposedMoons, interiorEmpties, coverage };
+}
+
+function shuffle(items) {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+function makePlants(dawn, moon, other, rows, cols) {
+  const plants = [];
+  for (let i = 1; i <= dawn; i++) plants.push({ type:'dawn', number:i });
+  for (let i = 1; i <= moon; i++) plants.push({ type:'moon', number:i });
+  for (let i = 1; i <= other; i++) plants.push({ type:'other', number:i });
+  shuffle(plants);
+
+  const positions = Array.from({ length:rows * cols }, (_, index) => index);
+  positions.sort((a, b) => {
+    const ar = Math.floor(a / cols), ac = a % cols;
+    const br = Math.floor(b / cols), bc = b % cols;
+    const ad = Math.max(Math.abs(ar - 4.5), Math.abs(ac - 4.5));
+    const bd = Math.max(Math.abs(br - 4.5), Math.abs(bc - 4.5));
+    return ad - bd || Math.abs(ar - 4.5) + Math.abs(ac - 4.5) - Math.abs(br - 4.5) - Math.abs(bc - 4.5);
+  });
+
+  const farm = Array.from({ length:rows * cols }, () => ({ type:'empty', number:0 }));
+  plants.forEach((plant, i) => { farm[positions[i]] = plant; });
+  return farm;
+}
+
+function optimise(base, rows, cols, settings) {
+  let best = null, bestResult = null;
+  const moonTotal = base.filter(plant => plant.type === 'moon').length;
+  for (let restart = 0; restart < 8; restart++) {
+    const current = base.map(p => ({ ...p }));
+    const occupied = current.filter(p => p.type !== 'empty');
+    shuffle(occupied);
+    let occupiedIndex = 0;
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].type !== 'empty') current[i] = occupied[occupiedIndex++];
+    }
+    let currentResult = inspect(current, rows, cols, settings);
+    for (let step = 0; step < 1000; step++) {
+      const pool = settings.compact && Math.random() < .9
+        ? current.map((plant, index) => plant.type === 'empty' ? -1 : index).filter(index => index >= 0)
+        : current.map((_, index) => index);
+      const a = pool[Math.floor(Math.random() * pool.length)];
+      const alternatives = pool.filter(index => current[index].type !== current[a].type);
+      if (!alternatives.length) continue;
+      const b = alternatives[Math.floor(Math.random() * alternatives.length)];
+      [current[a], current[b]] = [current[b], current[a]];
+      const candidate = inspect(current, rows, cols, settings);
+      const temperature = 1.2 * (1 - step / 1000);
+      if (candidate.score >= currentResult.score || Math.random() < Math.exp((candidate.score - currentResult.score) / Math.max(.05, temperature))) {
+        currentResult = candidate;
+      } else {
+        [current[a], current[b]] = [current[b], current[a]];
+        currentResult = inspect(current, rows, cols, settings);
+      }
+    }
+    if (!bestResult || currentResult.score > bestResult.score) {
+      best = current.map(p => ({ ...p }));
+      bestResult = inspect(best, rows, cols, settings);
+    }
+    if (bestResult.met === bestResult.required && bestResult.exposedMoons === moonTotal && (!settings.compact || bestResult.interiorEmpties === 0)) break;
+  }
+  return { plants:best, result:bestResult };
+}
+
+function validate(dawn, moon, other, settings) {
+  if (dawn + moon + other === 0) return 'Add at least one plant.';
+  if (dawn + moon + other > 100) return 'A 10 x 10 farm has 100 plots. Reduce the total number of plants to 100 or fewer.';
+  if ((settings.coverageGoal === 'both' || settings.coverageGoal === 'dawn') && dawn < 2) return 'All plants need a Dawnbinder buff, so at least 2 Dawnbinders are required because a plant cannot grant Dawn to itself.';
+  if ((settings.coverageGoal === 'both' || settings.coverageGoal === 'moon') && moon < 2) return 'All plants need an Amber buff, so at least 2 Moonbinders are required because a plant cannot grant Amber to itself.';
+  return '';
+}
+
+function currentSettings() {
+  return {
+    coverageGoal:document.querySelector('input[name="coverageGoal"]:checked').value,
+    compact:$('compact').checked,
+    priority:$('priority').value
+  };
+}
+
+function resetPlannerInputs() {
+  $('dawnCount').value = 4;
+  $('moonCount').value = 4;
+  $('otherCount').value = 8;
+  $('coverageBoth').checked = true;
+  $('priority').value = 'balanced';
+  $('compact').checked = true;
+  $('copyStatus').textContent = '';
+}
+
+function renumberPlants(plants) {
+  const counts = { dawn:0, moon:0, other:0 };
+  plants.forEach(plant => {
+    if (plant.type in counts) plant.number = ++counts[plant.type];
+    else plant.number = 0;
+  });
+  $('dawnCount').value = counts.dawn;
+  $('moonCount').value = counts.moon;
+  $('otherCount').value = counts.other;
+}
+
+function showCoverageMessage(result, manual) {
+  const message = $('message');
+  message.className = 'message show';
+  if (result.met === result.required) {
+    message.textContent = manual
+      ? 'Manual layout updated. All required plants are covered.'
+      : 'All required plants are covered. Generate again for a different valid arrangement.';
+    message.classList.add('good');
+  } else {
+    message.textContent = (result.required - result.met) + ' required plant(s) are missing coverage. The red outline shows which ones.';
+    message.classList.add('bad');
+  }
+}
+
+function cyclePlant(plants, index, rows, cols) {
+  const cycle = ['empty', 'dawn', 'moon', 'other'];
+  const currentIndex = cycle.indexOf(plants[index].type);
+  plants[index] = { type:cycle[(currentIndex + 1) % cycle.length], number:0 };
+  renumberPlants(plants);
+  const result = inspect(plants, rows, cols, currentSettings());
+  render(plants, rows, cols, result);
+  $('copyStatus').textContent = '';
+  showCoverageMessage(result, true);
+}
+
+function render(plants, rows, cols, result) {
+  const board = $('board');
+  board.style.setProperty('--cols', cols);
+  board.innerHTML = '';
+  plants.forEach((plant, i) => {
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.addEventListener('click', () => cyclePlant(plants, i, rows, cols));
+    if (plant.type === 'empty') {
+      cell.className = 'plant empty';
+      cell.setAttribute('aria-label', 'Empty plot. Change to Dawnbinder.');
+      board.appendChild(cell);
+      return;
+    }
+    cell.className = 'plant ' + plant.type + (plant.met ? '' : ' unmet');
+    const name = plant.type === 'dawn' ? 'Dawnbinder' : plant.type === 'moon' ? 'Moonbinder' : 'Dawnbreaker';
+    const imageSrc = plant.type === 'dawn' ? 'dawncelestial.png' : plant.type === 'moon' ? 'mooncelestial.png' : 'dawnbreaker.png';
+    const nextName = plant.type === 'dawn' ? 'Moonbinder' : plant.type === 'moon' ? 'Dawnbreaker' : 'empty plot';
+    cell.setAttribute('aria-label', name + ' ' + plant.number + ', Dawn buff ' + (plant.coverage.dawn ? 'yes' : 'no') + ', Moon buff ' + (plant.coverage.moon ? 'yes' : 'no') + '. Change to ' + nextName + '.');
+    cell.innerHTML = '<img class="plant-image" src="' + imageSrc + '" alt=""><span class="buffs">' +
+      '<span class="buff d ' + (plant.coverage.dawn ? 'on' : '') + '">D</span>' +
+      '<span class="buff m ' + (plant.coverage.moon ? 'on' : '') + '">M</span></span>';
+    board.appendChild(cell);
+  });
+  $('dimensions').textContent = cols + ' x ' + rows;
+  $('targets').textContent = result.met + ' / ' + result.required;
+  $('doubleBuffed').textContent = result.both;
+  $('planString').value = 'MGP1:' + plants.map(plant => ({ dawn:'D', moon:'M', other:'P', empty:'-' })[plant.type]).join('');
+}
+
+function generate() {
+  const dawn = readCount('dawnCount'), moon = readCount('moonCount'), other = readCount('otherCount');
+  const settings = currentSettings();
+  const message = $('message');
+  const error = validate(dawn, moon, other, settings);
+  message.className = 'message';
+  if (error) {
+    message.textContent = error;
+    message.classList.add('show', 'bad');
+    return;
+  }
+  const cols = 10, rows = 10;
+  const layout = optimise(makePlants(dawn, moon, other, rows, cols), rows, cols, settings);
+  render(layout.plants, rows, cols, layout.result);
+  showCoverageMessage(layout.result, false);
+}
+
+$('generate').addEventListener('click', generate);
+$('copyPlan').addEventListener('click', async () => {
+  const value = $('planString').value;
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    $('copyStatus').textContent = 'Plan string copied.';
+  } catch (_) {
+    $('planString').focus();
+    $('planString').select();
+    document.execCommand('copy');
+    $('copyStatus').textContent = 'Plan selected and copied.';
+  }
+});
+window.addEventListener('pageshow', () => {
+  resetPlannerInputs();
+  generate();
+});
+</script>
+</body>
+</html>
