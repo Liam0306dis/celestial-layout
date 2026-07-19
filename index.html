@@ -94,8 +94,8 @@
   .key.m::before { background-image:url('mooncelestial.png'); }
   .key.o::before { background-image:url('dawnbreaker.png'); }
   .key.u::before { width:9px; height:9px; border-radius:3px; background:var(--bad); }
-  .calc-links { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
-  .calc-link { display:block; padding:11px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; color:var(--text); text-decoration:none; }
+  .calc-links { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+  .calc-link { display:block; flex:1 1 210px; max-width:260px; padding:11px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; color:var(--text); text-decoration:none; }
   .calc-link:hover { border-color:var(--accent); }
   .calc-link b { display:block; font-size:13px; margin-bottom:3px; }
   .calc-link span { display:block; font-size:11px; color:var(--dim); line-height:1.35; }
@@ -116,7 +116,7 @@
     .buff { min-width:9px; padding:0; border-radius:2px; font-size:7px; line-height:1.15; }
     .export-row { grid-template-columns:1fr; }
     .export-row button { width:100%; }
-    .calc-links { grid-template-columns:1fr; }
+    .calc-link { flex-basis:100%; max-width:none; }
   }
   @media (max-width:360px) {
     body { padding-inline:8px; }
@@ -184,6 +184,7 @@
       <a class="calc-link" href="https://liam0306dis.github.io/magic-dust-calc/"><b>Magic Dust</b><span>Estimate pet dust value and expected dust from eggs.</span></a>
       <a class="calc-link" href="https://liam0306dis.github.io/capsule-calc/"><b>Dawn Capsule</b><span>Estimate capsules per Dawn and compare capture cadence options.</span></a>
       <a class="calc-link" href="https://liam0306dis.github.io/farm-projection/"><b>Farm Projection</b><span>Project a farm's finished value and the time needed to get there.</span></a>
+      <a class="calc-link" href="https://liam0306dis.github.io/garden-layout/"><b>Garden Layout Planner</b><span>Plan your whole farm layout - plants, mutations and decorations.</span></a>
     </div>
   </section>
 
